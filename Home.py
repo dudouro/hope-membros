@@ -59,11 +59,11 @@ if not aniversariantes_mes.empty:
         mes_pt = mes_em_portugues(mes)  # Substitui para português
         data_nascimento = row["data_nascimento"].strftime(f"%d de {mes_pt}")
         
-        # Exibe os aniversariantes na sidebar
+        # Exibe os aniversariantes na sidebar com fundo cinza escuro e texto claro
         st.sidebar.markdown(f"""
-            <div style="background-color: #f8f8f8; padding: 10px; margin: 10px 0; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                <h2>{nome}</h2>
-                <p style="font-size: 16px; color: #555;">Aniversário: {data_nascimento}</p>
+            <div style="background-color: #555555; padding: 10px; margin: 10px 0; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <h2 style="color: #ffffff;">{nome}</h2>
+                <p style="font-size: 16px; color: #dddddd;">Aniversário: {data_nascimento}</p>
             </div>
         """, unsafe_allow_html=True)
 else:
