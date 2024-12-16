@@ -1,2 +1,4 @@
-yfinance
+openpyxl
 pandas
+datetime
+hashlib
