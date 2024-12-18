@@ -1,3 +1,5 @@
 openpyxl
 pandas
 folium
+cryptography
+firebase_admin
