@@ -1,77 +1,82 @@
-import streamlit as st
+from base import obter_base, conectar_firebase
 import pandas as pd
-from base import obter_base
+import streamlit as st
+from datetime import datetime
 
+# Inicializa a conexão com o Firebase
+try:
+    db = conectar_firebase()
+except Exception as e:
+    st.error(f"Erro ao conectar com o Firebase: {e}")
+    st.stop()
 
-caminho_csv = "relacionamentos.csv"
+# Obtendo a base de dados da planilha
+df_base = obter_base()
 
-# Caminho do arquivo CSV de relacionamentos
-relacionamentos = pd.read_csv(caminho_csv)
+# Extraindo nomes das pessoas na base de dados (supondo que a coluna é "nome")
+pessoas_base = df_base["nome"].dropna().tolist()
 
-# Obtém os dados principais
-dados = obter_base()
+# Função para adicionar discipulados ao Firestore
+def adicionar_discipulado(nome, data, celula, discipulador):
+    """
+    Adiciona um discipulado ao Firestore.
 
-st.title("Gestão de Discipuladores e Discípulos")
+    :param nome: Nome da pessoa discipulada.
+    :param data: Data do discipulado.
+    :param celula: Célula a que pertence.
+    :param discipulador: Nome do discipulador responsável.
+    """
+    try:
+        discipulado = {
+            "nome": nome,
+            "data": data,
+            "celula": celula,
+            "discipulador": discipulador
+        }
+        db.collection("discipulados").add(discipulado)
+        st.success(f"Discipulado de {nome} adicionado com sucesso!")
+    except Exception as e:
+        st.error(f"Erro ao adicionar discipulado: {e}")
 
-# Seleciona um discipulador
-discipuladores = dados["nome"].unique()
-discipulador_selecionado = st.selectbox("Selecione um Discipulador:", discipuladores)
-discipulador_id = dados[dados["nome"] == discipulador_selecionado]["id"].values[0]
+# Interface para adicionar novos discipulados
+st.subheader("Adicionar Novo Discipulado")
+with st.form("form_discipulado"):
+    nome = st.selectbox("Nome da Pessoa Discipulada", pessoas_base)
+    data = st.date_input("Data do Discipulado", datetime.now())
+    celula = st.selectbox("Célula", ["Celula 18", "Celula 14-17"])
+    discipulador = st.selectbox("Nome do Discipulador", pessoas_base)
 
-# Filtra os discípulos associados
-discipulos_ids = relacionamentos[relacionamentos["discipulador_id"] == discipulador_id]["discipulado_id"]
-discipulos = dados[dados["id"].isin(discipulos_ids)]
+    # Botão para enviar o formulário
+    enviado = st.form_submit_button("Adicionar Discipulado")
+    if enviado:
+        adicionar_discipulado(nome, str(data), celula, discipulador)
 
-st.subheader(f"Discípulos de {discipulador_selecionado}:")
-if not discipulos.empty:
-    for _, row in discipulos.iterrows():
-        st.write(f"- {row['nome']}")
+# Exibir discipulados que correspondem à base
+st.subheader("Discipulados Cadastrados (Correspondentes à Base)")
+try:
+    discipulados_ref = db.collection("discipulados").stream()
+    discipulados = [
+        {
+            "discipulador": doc.to_dict().get("discipulador", ""),
+            "discipulado": doc.to_dict().get("nome", ""),
+        }
+        for doc in discipulados_ref
+    ]
 
-        if st.button(f"Remover {row['nome']}", key=f"remover_{row['id']}"):
-            # Remover apenas o relacionamento específico entre o discipulador e o discípulo
-            relacionamentos = relacionamentos[
-                (relacionamentos["discipulador_id"] != discipulador_id) |
-                (relacionamentos["discipulado_id"] != row["id"])
-            ]
-            
-            # Salvar as alterações no arquivo CSV
-            relacionamentos.to_csv(caminho_csv, index=False)
+    # Filtrar discipulados cujos nomes existem na base
+    discipulados_filtrados = [
+        d for d in discipulados if d["discipulado"] in pessoas_base
+    ]
 
-            # Atualizar a interface
-            st.rerun()
-else:
-    st.write("Nenhum discípulo associado.")
+    # Contar o total de discipulados filtrados
+    total_discipulados = len(discipulados_filtrados)
 
-# Adicionar novo discípulo
-st.subheader("Adicionar Novo Discípulo")
-discipulos_disponiveis = dados[~dados["id"].isin(discipulos_ids) & (dados["id"] != discipulador_id)]
-discipulado_selecionado = st.selectbox(
-    "Selecione um Discípulo para Adicionar:",
-    discipulos_disponiveis["nome"].values if not discipulos_disponiveis.empty else []
-)
-
-# Quando um discípulo é selecionado e o botão é clicado
-if discipulado_selecionado:
-    discipulado_id = dados[dados["nome"] == discipulado_selecionado]["id"].values[0]
-    if st.button("Adicionar Discípulo"):
-        # Adicionar o relacionamento no dataframe
-        novo_relacionamento = pd.DataFrame({
-            "discipulador_id": [discipulador_id],
-            "discipulado_id": [discipulado_id]
-        })
-        relacionamentos = pd.concat([relacionamentos, novo_relacionamento], ignore_index=True)
-
-        # Salvar as alterações no arquivo CSV
-        relacionamentos.to_csv(caminho_csv, index=False)
-
-        # Atualizar a interface
-        st.rerun()
-
-# Botão para listar as pessoas
-if st.button("Listar Pessoas", key="listar_pessoas"):
-    # Obtém a base de dados
-    df = obter_base()
-    
-    # Exibe os dados na interface com uma borda e sombra estilizada
-    st.write("Lista de Pessoas:")
-    st.dataframe(df)
+    # Exibir o total e os discipulados
+    st.markdown(f"### Total de Discipulados (na base): {total_discipulados}")
+    if discipulados_filtrados:
+        discipulados_df = pd.DataFrame(discipulados_filtrados)
+        st.dataframe(discipulados_df)
+    else:
+        st.write("Nenhum discipulado registrado corresponde às pessoas na base.")
+except Exception as e:
+    st.error(f"Erro ao carregar discipulados: {e}")
