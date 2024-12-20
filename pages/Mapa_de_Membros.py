@@ -129,7 +129,4 @@ st.markdown(f"### Melhores Caronas para {membro_escolhido}")
 for i, carona in enumerate(melhores_carona, 1):
     st.markdown(f"{i}. **{carona[0]}** - Distância: {carona[1]:.2f} km")
 
-# Salvar o mapa em um arquivo HTML
-mapa.save("mapa_presencas_uberlandia_com_imagem_igreja.html")
-
 
