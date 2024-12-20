@@ -91,6 +91,8 @@ folium.Marker(
     icon=custom_icon
 ).add_to(mapa)
 
+# Salvar o mapa em um arquivo HTML
+mapa.save("mapa_presencas_uberlandia_com_imagem_igreja.html")
 # Função para simular a melhor carona e calcular os 3 membros mais próximos da linha reta
 def encontrar_melhores_caronas(membro_lat, membro_lon):
     distances = []
