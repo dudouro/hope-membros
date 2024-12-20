@@ -2,7 +2,31 @@ import streamlit as st
 import folium
 from folium.plugins import MarkerCluster
 from base import obter_base
+from math import radians, sin, cos, sqrt, atan2
 import os
+
+# Função para calcular a distância em linha reta entre duas coordenadas (latitude, longitude) usando a fórmula de Haversine
+def haversine(lat1, lon1, lat2, lon2):
+    # Raio da Terra em km
+    R = 6371.0
+    
+    # Convertemos as coordenadas de graus para radianos
+    lat1 = radians(lat1)
+    lon1 = radians(lon1)
+    lat2 = radians(lat2)
+    lon2 = radians(lon2)
+    
+    # Diferenças de coordenadas
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    
+    # Fórmula de Haversine
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    
+    # Distância em km
+    distance = R * c
+    return distance
 
 # Supondo que df seja o seu DataFrame com as colunas 'latitude', 'longitude', 'bairro' e 'nome'
 df = obter_base()  # Seu código para obter os dados
@@ -67,9 +91,43 @@ folium.Marker(
     icon=custom_icon
 ).add_to(mapa)
 
-# Salvar o mapa em um arquivo HTML
-mapa.save("mapa_presencas_uberlandia_com_imagem_igreja.html")
+# Função para simular a melhor carona e calcular os 3 membros mais próximos da linha reta
+def encontrar_melhores_caronas(membro_lat, membro_lon):
+    distances = []
+    
+    # Calcula as distâncias dos membros à linha reta entre o membro escolhido e a igreja
+    for _, row in df.iterrows():
+        if row["latitude"] != membro_lat or row["longitude"] != membro_lon:
+            distance_to_igreja = haversine(membro_lat, membro_lon, igreja_latitude, igreja_longitude)
+            distance_to_member = haversine(membro_lat, membro_lon, row["latitude"], row["longitude"])
+            distances.append((row["nome"], distance_to_member, row["latitude"], row["longitude"]))
+    
+    # Ordena pela distância mais próxima
+    distances.sort(key=lambda x: x[1])
+    
+    return distances[:3]
 
 # Exibir no Streamlit
 st.markdown("### Mapa das Pessoas")
 st.components.v1.html(open("mapa_presencas_uberlandia_com_imagem_igreja.html", 'r').read(), height=600)
+
+# Exibir opção de escolher o membro para procurar a carona
+membro_escolhido = st.selectbox('Escolha um membro para procurar a carona', df['nome'].values)
+
+# Obter as coordenadas do membro escolhido
+membro_row = df[df['nome'] == membro_escolhido].iloc[0]
+membro_latitude = membro_row['latitude']
+membro_longitude = membro_row['longitude']
+
+# Calcular os 3 membros mais próximos à linha reta
+melhores_carona = encontrar_melhores_caronas(membro_latitude, membro_longitude)
+
+# Exibir os 3 melhores membros para a carona
+st.markdown(f"### Melhores Caronas para {membro_escolhido}")
+for i, carona in enumerate(melhores_carona, 1):
+    st.markdown(f"{i}. **{carona[0]}** - Distância: {carona[1]:.2f} km")
+
+# Salvar o mapa em um arquivo HTML
+mapa.save("mapa_presencas_uberlandia_com_imagem_igreja.html")
+
+
